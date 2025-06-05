@@ -3,13 +3,15 @@
 
 #include <opencv2/opencv.hpp>
 
+
 class itracker
 {
 public:
+    itracker(std::string cfg);
     itracker();
     ~itracker();
 
-    void init(cv::Rect &roi, cv::Mat image);
+    void init(const cv::Rect &roi, cv::Mat image);
     void init(const cv::Point &pt, cv::Mat image);
     cv::Rect update(cv::Mat image, bool alone = true);
     void reset();
@@ -24,6 +26,7 @@ public:
     cv::Rect getTmplRect();
     void setRoi(cv::Rect roi);
     cv::Rect find(cv::Mat image, double &sim);
+    float getConf();
 
 public:
     bool m_isLost;
@@ -39,6 +42,10 @@ public:
 
     int m_setupf;
     int m_stpUpdt;
+    float m_conf;
+    int m_sen;
+    int m_failCntThres;
+    
 };
 
 

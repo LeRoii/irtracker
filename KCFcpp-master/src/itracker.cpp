@@ -11,6 +11,9 @@ static int finalwidth = 32;
 static int finalheight = 32;
 static float scalef = 0.5;
 
+static std::vector<double> preApce;
+static std::vector<double> preResMax;
+static stTrackerParams m_cfg;
 
 
 static double calculateSSIM(const cv::Mat& imgg1, const cv::Mat& imgg2)
@@ -110,18 +113,216 @@ static double calculateHistogramSimilarity(const cv::Mat& image1, const cv::Mat&
 //     return similarity;
 // }
 
-itracker::itracker():m_isLost(true),m_init(false)
+itracker::itracker(std::string cfg):m_isLost(true),m_init(false)
 {
-    bool HOG = true;
-    bool FIXEDWINDOW = false;
-    bool MULTISCALE = false;
-    bool SILENT = true;
-    bool LAB = false;
+	// bool HOG = false;
+	// bool FIXEDWINDOW = false;
+	// bool MULTISCALE = false;
+	// bool SILENT = true;
+	// bool LAB = false;
 
-    trackerPtr = new KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB);
+    // trackerPtr = new KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB);
+
+    // YAML::Node config = YAML::LoadFile(cfg);
+
+    // m_cfg.mode = config["trackerMode"].as<int>();
+    // m_sen = config["sensitivity"].as<int>();
+
+
+    if(m_cfg.mode == 0)
+    {
+        // m_cfg.hog = config["hog"].as<bool>();
+        // m_cfg.fixedWin = config["fixedWin"].as<bool>();
+        // m_cfg.multiscale = config["multiscale"].as<bool>();
+        // m_cfg.lab = config["lab"].as<bool>();
+        // m_cfg.lambda = config["lambda"].as<double>();
+        // m_cfg.padding = config["padding"].as<int>();
+        // m_cfg.output_sigma_factor = config["output_sigma_factor"].as<double>();
+        // m_cfg.sigma = config["sigma"].as<double>();
+        // m_cfg.cellSz = config["cellSz"].as<int>();
+        // m_cfg.interp_factor = config["interp_factor"].as<double>();
+    }
+    else if(m_cfg.mode == 1)
+    {
+        m_cfg.hog = false;
+        m_cfg.fixedWin = false;
+        m_cfg.multiscale = false;
+        m_cfg.lab = false;
+        m_cfg.lambda = 0.0001;
+        m_cfg.padding = 2.5;
+        m_cfg.output_sigma_factor = 0.125;
+        m_cfg.sigma = 0.2;
+        m_cfg.cellSz = 1;
+        m_cfg.interp_factor = 0.075;
+    }
+    else if(m_cfg.mode == 2)
+    {
+        m_cfg.hog = true;
+        m_cfg.fixedWin = false;
+        m_cfg.multiscale = true;
+        m_cfg.lab = false;
+        m_cfg.lambda = 0.0001;
+        m_cfg.padding = 3;
+        m_cfg.output_sigma_factor = 0.125;
+        m_cfg.sigma = 0.6;
+        m_cfg.cellSz = 4;
+        m_cfg.interp_factor = 0.012;
+    }
+    else if(m_cfg.mode == 3)
+    {
+        m_cfg.hog = false;
+        m_cfg.fixedWin = false;
+        m_cfg.multiscale = true;
+        m_cfg.lab = false;
+        m_cfg.lambda = 0.0001;
+        m_cfg.padding = 3;
+        m_cfg.output_sigma_factor = 0.125;
+        m_cfg.sigma = 0.2;
+        m_cfg.cellSz = 1;
+        m_cfg.interp_factor = 0.075;
+    }
+    else if(m_cfg.mode == 4)
+    {
+        m_cfg.hog = true;
+        m_cfg.fixedWin = false;
+        m_cfg.multiscale = true;
+        m_cfg.lab = false;
+        m_cfg.lambda = 0.001;
+        m_cfg.padding = 2.5;
+        m_cfg.output_sigma_factor = 0.1;
+        m_cfg.sigma = 0.6;
+        m_cfg.cellSz = 4;
+        m_cfg.interp_factor = 0.075;
+    }
+#if TRACKER_DEBUG
+    printf("tracker cfg:\nmode:%d, \nhog:%d, \nfixedWin:%d,\nmultiscale:%d,\nlab:%d,\nlambda:%f,\
+        \npadding:%d, \noutput_sigma_factor:%f, \nsigma:%f, \ncellSz:%d, \ninterp_factor:%f, \nsensitivity:%d", \
+        m_cfg.mode, m_cfg.hog, m_cfg.fixedWin, m_cfg.multiscale, m_cfg.lab, m_cfg.lambda, m_cfg.padding, \
+        m_cfg.output_sigma_factor, m_cfg.sigma, m_cfg.cellSz, m_cfg.interp_factor, m_sen);
+#endif
+    
+    trackerPtr = new KCFTracker(m_cfg);
 
     m_templateSearchWindowSize = 150;
     m_templateSearchOffset = m_templateSearchWindowSize/2;
+
+    switch(m_sen)
+    {
+        case 1: m_failCntThres = 10;break;
+        case 2: m_failCntThres = 5;break;
+        case 3: m_failCntThres = 3;break;
+        case 4: m_failCntThres = 2;break;
+        case 5: m_failCntThres = 1;break;
+        default:m_failCntThres = 100;break;
+    }
+    
+}
+itracker::itracker():m_isLost(true),m_init(false)
+{
+    m_cfg.mode = 5;
+    m_sen = 4;
+
+
+    if(m_cfg.mode == 0)
+    {
+        // m_cfg.hog = config["hog"].as<bool>();
+        // m_cfg.fixedWin = config["fixedWin"].as<bool>();
+        // m_cfg.multiscale = config["multiscale"].as<bool>();
+        // m_cfg.lab = config["lab"].as<bool>();
+        // m_cfg.lambda = config["lambda"].as<double>();
+        // m_cfg.padding = config["padding"].as<int>();
+        // m_cfg.output_sigma_factor = config["output_sigma_factor"].as<double>();
+        // m_cfg.sigma = config["sigma"].as<double>();
+        // m_cfg.cellSz = config["cellSz"].as<int>();
+        // m_cfg.interp_factor = config["interp_factor"].as<double>();
+    }
+    else if(m_cfg.mode == 1)
+    {
+        m_cfg.hog = false;
+        m_cfg.fixedWin = false;
+        m_cfg.multiscale = false;
+        m_cfg.lab = false;
+        m_cfg.lambda = 0.0001;
+        m_cfg.padding = 2.5;
+        m_cfg.output_sigma_factor = 0.125;
+        m_cfg.sigma = 0.2;
+        m_cfg.cellSz = 1;
+        m_cfg.interp_factor = 0.075;
+    }
+    else if(m_cfg.mode == 2)
+    {
+        m_cfg.hog = true;
+        m_cfg.fixedWin = false;
+        m_cfg.multiscale = true;
+        m_cfg.lab = false;
+        m_cfg.lambda = 0.0001;
+        m_cfg.padding = 3;
+        m_cfg.output_sigma_factor = 0.125;
+        m_cfg.sigma = 0.6;
+        m_cfg.cellSz = 4;
+        m_cfg.interp_factor = 0.012;
+    }
+    else if(m_cfg.mode == 3)
+    {
+        m_cfg.hog = false;
+        m_cfg.fixedWin = false;
+        m_cfg.multiscale = true;
+        m_cfg.lab = false;
+        m_cfg.lambda = 0.0001;
+        m_cfg.padding = 3;
+        m_cfg.output_sigma_factor = 0.125;
+        m_cfg.sigma = 0.2;
+        m_cfg.cellSz = 1;
+        m_cfg.interp_factor = 0.075;
+    }
+    else if(m_cfg.mode == 4)
+    {
+        m_cfg.hog = true;
+        m_cfg.fixedWin = false;
+        m_cfg.multiscale = true;
+        m_cfg.lab = false;
+        m_cfg.lambda = 0.001;
+        m_cfg.padding = 2.5;
+        m_cfg.output_sigma_factor = 0.1;
+        m_cfg.sigma = 0.6;
+        m_cfg.cellSz = 4;
+        m_cfg.interp_factor = 0.075;
+    }
+    else if(m_cfg.mode == 5)
+    {
+        m_cfg.hog = true;
+        m_cfg.fixedWin = false;
+        m_cfg.multiscale = false;
+        m_cfg.lab = false;
+        m_cfg.lambda = 0.0001;
+        m_cfg.padding = 3;
+        m_cfg.output_sigma_factor = 0.125;
+        m_cfg.sigma = 0.6;
+        m_cfg.cellSz = 4;
+        m_cfg.interp_factor = 0.012;
+    }
+#if TRACKER_DEBUG
+    printf("tracker cfg:\nmode:%d, \nhog:%d, \nfixedWin:%d,\nmultiscale:%d,\nlab:%d,\nlambda:%f,\
+        \npadding:%d, \noutput_sigma_factor:%f, \nsigma:%f, \ncellSz:%d, \ninterp_factor:%f, \nsensitivity:%d", \
+        m_cfg.mode, m_cfg.hog, m_cfg.fixedWin, m_cfg.multiscale, m_cfg.lab, m_cfg.lambda, m_cfg.padding, \
+        m_cfg.output_sigma_factor, m_cfg.sigma, m_cfg.cellSz, m_cfg.interp_factor, m_sen);
+#endif
+    
+    trackerPtr = new KCFTracker(m_cfg);
+
+    m_templateSearchWindowSize = 150;
+    m_templateSearchOffset = m_templateSearchWindowSize/2;
+
+    switch(m_sen)
+    {
+        case 1: m_failCntThres = 10;break;
+        case 2: m_failCntThres = 5;break;
+        case 3: m_failCntThres = 3;break;
+        case 4: m_failCntThres = 2;break;
+        case 5: m_failCntThres = 1;break;
+        default:m_failCntThres = 100;break;
+    }
+    
 }
 
 itracker::~itracker()
@@ -134,8 +335,9 @@ itracker::~itracker()
 
 // }
 
-void itracker::init(cv::Rect &roi, cv::Mat image)
+void itracker::init(const cv::Rect &roii, cv::Mat image)
 {
+    cv::Rect roi = roii;
     if(roi.x < 0)
         roi.x = 0;
     if(roi.x + roi.width > image.cols)
@@ -145,11 +347,16 @@ void itracker::init(cv::Rect &roi, cv::Mat image)
     if(roi.y + roi.height > image.rows)
         roi.y = image.rows - roi.height - 2;
     m_template = m_oriPatch = image(roi).clone();
-
-    printf("\n\n%d,%d\n",image.cols,image.rows);
+    roix = roi.x;
+    roiy = roi.y;
     trackerPtr->init(roi, image);
+
+#if TRACKER_DEBUG
+    printf("\n\n%d,%d\n",image.cols,image.rows);
     printf("\ntracker init by rect ");
     std::cout<<roi<<std::endl;
+#endif
+
     m_centerPt = cv::Point(roi.x+roi.width/2, roi.y+roi.height/2);
 
     m_init = true;
@@ -157,17 +364,22 @@ void itracker::init(cv::Rect &roi, cv::Mat image)
 
     m_tmplSz = trackerPtr->padding*m_GateSize;
 
-    
     m_stpUpdt = 0;
-    m_setupf = 0;
+    m_setupf = 5;
+
+    preApce.clear();
+    preResMax.clear();
 }
 
 void itracker::init(const cv::Point &pt, cv::Mat image)
 {
     // cv::cvtColor(m_oriPatch, m_oriPatch, cv::COLOR_BGR2GRAY);
     // cv::imwrite("oripatch.png", m_oriPatch);
+#if TRACKER_DEBUG
+    printf("\n\n%d,%d\n",image.cols,image.rows);
     printf("\n\nstracker init with pt x:%d, y:%d\n", pt.x, pt.y);
     printf("\n\nstracker init with pt m_GateSize:%d\n", m_GateSize);
+#endif
     cv::Rect roi= cv::Rect{pt.x - m_GateSize/2, pt.y - m_GateSize/2, m_GateSize, m_GateSize};
     if(roi.x < 0)
         roi.x = 0;
@@ -181,9 +393,8 @@ void itracker::init(const cv::Point &pt, cv::Mat image)
     roix = roi.x;
     roiy = roi.y;
 
-    printf("\n\n%d,%d\n",image.cols,image.rows);
     trackerPtr->init(roi, image);
-    printf("\ntracker init by pt\n");
+
     m_centerPt = pt;
 
     m_init = true;
@@ -192,7 +403,10 @@ void itracker::init(const cv::Point &pt, cv::Mat image)
     m_tmplSz = trackerPtr->padding*m_GateSize;
 
     m_stpUpdt = 0;
-    m_setupf = 0;
+    m_setupf = 5;
+
+    preApce.clear();
+    preResMax.clear();
 
 }
 
@@ -227,21 +441,58 @@ cv::Rect itracker::updateTP(cv::Mat image)
 cv::Rect itracker::find(cv::Mat image, double &sim)
 {
     float peakVal;
-    auto result = trackerPtr->seulDetect(image);
+    auto result = trackerPtr->seulDetect(image, peakVal);
     if(result.x < 0)
         result.x = 0;
     if(result.x + result.width > image.cols)
-        result.x = image.cols - result.width - 1;
+    {
+        if(result.width > image.cols)
+        {
+            result.width = image.cols;
+            result.x = 0;
+        }
+        else
+            result.x = image.cols - result.width;
+    }
     if(result.y < 0)
+    {
         result.y = 0;
+    }
     if(result.y + result.height > image.rows)
-        result.y = image.rows - result.height - 1;
+    {
+        if(result.height > image.rows)
+        {
+            result.height = image.rows;
+            result.y = 0;
+        }
+        else
+            result.y = image.rows - result.height;
+    }
     auto retPatch = image(result);
-    sim = calculateHistogramSimilarity(m_oriPatch, retPatch);
+    // sim = calculateHistogramSimilarity(m_oriPatch, retPatch);
 
     double ssim = calculateSSIM(m_oriPatch, retPatch);
-    sim = ssim;
-    printf("itracker::find hsim:%f, ssim:%f\n", sim, ssim);
+    // sim = ssim;
+    if(peakVal > 40.f)
+        sim = 0.35 + ssim;
+    else if(peakVal > 30.f)
+        sim = 0.3 + ssim;
+    else if(peakVal > 20.f)
+        sim = 0.25 + ssim;
+    else
+        sim = ssim - 0.15;
+
+    // if(peakVal > 0.3)
+    // {
+    //     sim = ssim + peakVal - 0.3;
+    // }
+    // else
+    // {
+    //     sim = ssim - (0.3 - peakVal);
+    // }
+#if TRACKER_DEBUG
+    printf("itracker::find peakVal:%f, ssim:%f, sim:%f\n", peakVal, ssim, sim);
+#endif
 
     return result;
 }
@@ -251,28 +502,125 @@ cv::Rect itracker::update(cv::Mat image, bool alone)
     
     if(!m_init)
         return cv::Rect();
-    static int st = 0;
-    static float fallEdgePv = 0;
-    static int bottomCnt = 0;
-    static int lastSt = -1;
+
+    
     static int simFailCnt = 0;
-    static float lastPeakVal = 0;
-    float peakVal;
-    auto result = trackerPtr->update(image, peakVal);
+    double peakVal;
+    double apc;
+#if TRACKER_DEBUG
+    auto start = std::chrono::high_resolution_clock::now();
+#endif
+
+    auto result = trackerPtr->update(image, apc, peakVal);
+#if TRACKER_DEBUG
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - start;
+    std::cout<<"Time:"<<elapsed.count()*1000 <<"ms"<<std::endl;
+#endif
+
+
+    if(m_sen == 0)
+    {
+        return result;
+    }
+
+    preApce.push_back(apc);
+    preResMax.push_back(peakVal);
+
+    double addApce = 0;
+    double addResMax = 0;
+    double comApce = 0;
+    double comResMax = 0;
+
+    int sz =  preApce.size()-1;
+    for(int i=0;i<sz;i++){
+
+        addApce +=preApce[i];
+        addResMax +=preResMax[i];
+    }
+    //cout<<"addResMax = "<<addResMax<<endl;
+
+#if TRACKER_DEBUG
+    printf("sz = %d\n", sz);
+    printf("addApce:%f, addResMax:%f\n", addApce, addResMax);
+#endif
 
     if(m_isLost)
         return result;
 
+    if(sz>0) {
+
+        addApce = addApce / sz;
+        addResMax = addResMax / sz;
+
+        //cout<<"sz ="<<sz<<endl;
+        comApce = 0.5 * addApce;
+        comResMax = 0.5 * addResMax;
+
+        // if (apc > comApce && peakVal > comResMax) {
+        //     m_isLost = false;
+
+        // } else {
+        //     m_isLost = true;
+        //     printf("tracking lost\n");
+        // }
+
+        if (apc < comApce && peakVal < comResMax) 
+            simFailCnt++;
+        else
+            simFailCnt = 0;
+
+        if(simFailCnt > m_failCntThres)
+            m_isLost = true;
+
+        if (apc < comApce || peakVal < comResMax) 
+            m_conf = 0.5;
+        else
+        {
+            trackerPtr->updateRoi(image);
+            m_conf = 0.9;
+        }
+
+#if TRACKER_DEBUG
+    printf("comApce = %f, comResMax = %f\n", comApce, comResMax);
+    printf("apc:%f, peakVal:%f\n", apc, peakVal);
+    printf("simFailCnt:%d\n", simFailCnt);
+#endif
+
+    }
+
+    return result;
+
+    // std::cout<<"bf itracker:"<<result<<std::endl;
+
     if(result.x < 0)
         result.x = 0;
     if(result.x + result.width > image.cols)
-        result.x = image.cols - result.width - 1;
+    {
+        if(result.width > image.cols)
+        {
+            result.width = image.cols;
+            result.x = 0;
+        }
+        else
+            result.x = image.cols - result.width;
+    }
     if(result.y < 0)
+    {
         result.y = 0;
+    }
     if(result.y + result.height > image.rows)
-        result.y = image.rows - result.height - 1;
+    {
+        if(result.height > image.rows)
+        {
+            result.height = image.rows;
+            result.y = 0;
+        }
+        else
+            result.y = image.rows - result.height;
+    }
 
-    std::cout<<"itracker:"<<result<<std::endl;
+    // std::cout<<"itracker:"<<result<<std::endl;
     auto retPatch = image(result);
     // islost = false;
 
@@ -289,10 +637,10 @@ cv::Rect itracker::update(cv::Mat image, bool alone)
 
     static double lastSim = 0.0f;
     double sim = calculateSSIM(m_oriPatch, retPatch);
-    double hsim = calculateHistogramSimilarity(m_oriPatch, retPatch);
-    printf("hsim:%f\n", hsim);
-    printf("sim:%f\n", sim);
-    int simFailedCntThres = 4;
+    double hsim;// = calculateHistogramSimilarity(m_oriPatch, retPatch);
+    // printf("hsim:%f\n", hsim);
+    // printf("sim:%f\n", sim);
+    int simFailedCntThres = 3;
 
     double simDif = hsim - lastSim;
 
@@ -312,7 +660,7 @@ cv::Rect itracker::update(cv::Mat image, bool alone)
 
 
     // if(sim > 0.99 || peakVal > 1.0f)
-    if(sim > 0.9 || m_setupf++ < 0)
+    if((sim > 0.7 || peakVal > 30.f) || m_setupf++ < 5)
     // if(hsim < 0.2)
     {
         m_oriPatch = retPatch.clone();
@@ -321,7 +669,7 @@ cv::Rect itracker::update(cv::Mat image, bool alone)
     }
     else
     {
-        if(m_stpUpdt++ > 30 && sim > 0.35)
+        if(m_stpUpdt++ > 30 && sim > 0.5 && peakVal > 30.f)
         {
 #if TRACKER_DEBUG
             printf("m_stpUpdt met, updt patch\n");
@@ -330,95 +678,47 @@ cv::Rect itracker::update(cv::Mat image, bool alone)
             m_stpUpdt = 0;
         }
     }
-    if(peakVal > 0.8)
+    if(peakVal > 60.f)
         trackerPtr->updateRoi(image);
     // if(sim > 0.8f)
     // if(sim < 0.8f && peakVal < 1.0f)
     // if(peakVal < 0.5f || sim < 0.5f)
-    if(peakVal < 0.9f)
-    // if(hsim > 0.4)
-        simFailCnt++;
-    else
-        simFailCnt = 0;
+    // if(peakVal < 0.4f || sim < 0.6f)
+    // // if(hsim > 0.4)
+    //     simFailCnt++;
+    // else
+    //     simFailCnt = 0;
 
-    if(sim < 0.6 && peakVal < 0.7)
+    if(sim < 0.2 || peakVal < 20.f)
     {
         // m_isLost = true;
         simFailCnt++;
-    }
-    else if(sim < 0.1)
-    {
-        simFailCnt += 2;
-    }
-    
-#if 1 
-    printf("simDif:%f\n", simDif);
-    printf("SSSSSSSSSsimilarity:%f, peakVal:%f, diff:%f, simFailCnt:%d\n", hsim, peakVal, peakVal - lastPeakVal, simFailCnt);
-#endif
-    float peakDif = peakVal - lastPeakVal;
-    
-    do{
-        lastSt = st;
-        switch(st)
+        if(sim < 0.1)
         {
-            case 0:
-                if(peakDif < -0.2)
-                {
-                    simFailCnt++;
-                    st = 1;
-                    fallEdgePv = lastPeakVal + 0.005;
-#if TRACKER_DEBUG
-                    printf("\n\n-----------------ffffffallEdgePv = %f\n", fallEdgePv);
-#endif
-                }
-                if(simFailCnt > simFailedCntThres)
-                {
-                    st = 2;
-#if TRACKER_DEBUG
-                    printf("stracker state------->2\n");
-#endif
-                }
-                
-                break;
-            case 1:
-                // if(peakDif > 0.1 || peakVal >= fallEdgePv || bottomCnt > 10 || simFailCnt > simFailedCntThres)
-                if(simFailCnt > simFailedCntThres)
-
-                {
-                    st = 2;
-                }
-                else
-                {
-                    bottomCnt++;
-                    st = 1;
-                }
-                break;
-            case 2:
-                st = 0;
-#if TRACKER_DEBUG
-                printf("BBBBBBBBBBBBBBbottomCnt = %d\n", bottomCnt);
-#endif
-                
-                // if(bottomCnt > 10 || simFailCnt > simFailedCntThres)
-                {
-                    m_isLost = true;
-                    fallEdgePv = 0;
-                    bottomCnt = 0;
-                    simFailCnt = 0;
-                    printf("------------------Lost---------------\n");
-                }
-                break;
-            default:
-                break;
+            simFailCnt ++;
         }
-        
     }
-    while(lastSt != st && !m_isLost);
+    else
+    {
+        simFailCnt = 0;
+    }
+    
+#if TRACKER_DEBUG
+    // printf("simDif:%f\n", simDif);
+    // printf("sim:%f\n", sim);
+    printf("SSSSSSSSSsimilarity:%f, peakVal:%f, simFailCnt:%d\n", sim, peakVal, simFailCnt);
+#endif
+    if(simFailCnt > simFailedCntThres)
+    {
+        m_isLost = true;
+        simFailCnt = 0;
+        printf("------------------Lost---------------\n");
+    }
+
+    m_conf = simFailCnt > 0 ? 0.5 : 0.9;
 
     // m_isLost = false;
     
-    lastPeakVal = peakVal;
-
     m_centerPt.x = result.x + result.width/2;
 	m_centerPt.y = result.y + result.height/2;
 
@@ -473,21 +773,18 @@ void itracker::reset()
         delete trackerPtr;
     }
 
-    bool HOG = false;
-    bool FIXEDWINDOW = false;
-    bool MULTISCALE = false;
-    bool SILENT = true;
-    bool LAB = false;
-
     m_isLost = false;
 
-    trackerPtr = new KCFTracker(HOG, FIXEDWINDOW, MULTISCALE, LAB);
+    trackerPtr = new KCFTracker(m_cfg);
 
     m_init = false;
     m_isLost = true;
 
-    m_setupf = 0;
+    m_setupf = 5;
     m_stpUpdt = 0;
+
+    preApce.clear();
+    preResMax.clear();
 }
 
 bool& itracker::isLost()
@@ -521,6 +818,11 @@ void itracker::setRoi(cv::Rect roi)
     m_centerPt.x = roi.x + m_GateSize/2;
 	m_centerPt.y = roi.y + m_GateSize/2;
 
-    roi.width = roi.height = m_GateSize;
+    // roi.width = roi.height = m_GateSize;
     trackerPtr->setRoi(roi);
+}
+
+float itracker::getConf()
+{
+    return m_conf;
 }

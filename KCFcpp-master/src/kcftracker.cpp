@@ -88,6 +88,73 @@ the use of this software, even if advised of the possibility of such damage.
 #include "labdata.hpp"
 #endif
 
+KCFTracker::KCFTracker(stTrackerParams cfg):m_cfg(cfg)
+{
+    // Parameters equal in all cases
+    lambda = m_cfg.lambda;
+    // padding = 2.5; 
+    padding = m_cfg.padding; 
+    //output_sigma_factor = 0.1;
+    output_sigma_factor = m_cfg.output_sigma_factor;
+
+
+    if (m_cfg.hog) {    // HOG
+        // VOT
+        interp_factor = m_cfg.interp_factor;
+        sigma = m_cfg.sigma; 
+        // TPAMI
+        //interp_factor = 0.02;
+        //sigma = 0.5; 
+        cell_size = m_cfg.cellSz;
+        _hogfeatures = true;
+
+        if (m_cfg.lab) {
+            interp_factor = m_cfg.interp_factor;
+            sigma = m_cfg.sigma; 
+            //output_sigma_factor = 0.025;
+            output_sigma_factor = m_cfg.output_sigma_factor;
+
+            _labfeatures = true;
+            _labCentroids = cv::Mat(nClusters, 3, CV_32FC1, &data);
+            cell_sizeQ = cell_size*cell_size;
+        }
+        else{
+            _labfeatures = false;
+        }
+    }
+    else {   // RAW
+        interp_factor = m_cfg.interp_factor;
+        sigma = m_cfg.sigma; 
+        cell_size = m_cfg.cellSz;
+        _hogfeatures = false;
+
+        if (m_cfg.lab) {
+            printf("Lab features are only used with HOG features.\n");
+            _labfeatures = false;
+        }
+    }
+
+    if (m_cfg.multiscale) { // multiscale
+        template_size = 96;
+        //template_size = 100;
+        scale_step = 1.05;
+        scale_weight = 0.95;
+        if (!m_cfg.fixedWin) {
+            //printf("Multiscale does not support non-fixed window.\n");
+            m_cfg.fixedWin = true;
+        }
+    }
+    else if (m_cfg.fixedWin) {  // fit correction without multiscale
+        template_size = 96;
+        //template_size = 100;
+        scale_step = 1;
+    }
+    else {
+        template_size = 1;
+        scale_step = 1;
+    }
+}
+
 // Constructor
 KCFTracker::KCFTracker(bool hog, bool fixed_window, bool multiscale, bool lab)
 {
@@ -102,12 +169,12 @@ KCFTracker::KCFTracker(bool hog, bool fixed_window, bool multiscale, bool lab)
 
     if (hog) {    // HOG
         // VOT
-        // interp_factor = 0.012;
-        // sigma = 0.6; 
+        interp_factor = 0.012;
+        sigma = 0.6; 
         // TPAMI
-        interp_factor = 0.02;
-        sigma = 0.5; 
-        cell_size = 2;
+        //interp_factor = 0.02;
+        //sigma = 0.5; 
+        cell_size = 4;
         _hogfeatures = true;
 
         if (lab) {
@@ -183,27 +250,31 @@ cv::Rect KCFTracker::update(cv::Mat image)
 
 
     float peak_value;
-    cv::Point2f res = detect(_tmpl, getFeatures(image, 0, 1.0f), peak_value);
+    double apc;
+    cv::Point2f res = detect(_tmpl, getFeatures(image, 0, 1.0f), peak_value, apc);
 
     if (scale_step != 1) {
         // Test at a smaller _scale
         float new_peak_value;
-        cv::Point2f new_res = detect(_tmpl, getFeatures(image, 0, 1.0f / scale_step), new_peak_value);
+        double new_apc;
+        cv::Point2f new_res = detect(_tmpl, getFeatures(image, 0, 1.0f / scale_step), new_peak_value, new_apc);
 
         if (scale_weight * new_peak_value > peak_value) {
             res = new_res;
             peak_value = new_peak_value;
+            apc = new_apc;
             _scale /= scale_step;
             _roi.width /= scale_step;
             _roi.height /= scale_step;
         }
 
         // Test at a bigger _scale
-        new_res = detect(_tmpl, getFeatures(image, 0, scale_step), new_peak_value);
+        new_res = detect(_tmpl, getFeatures(image, 0, scale_step), new_peak_value, new_apc);
 
         if (scale_weight * new_peak_value > peak_value) {
             res = new_res;
             peak_value = new_peak_value;
+            apc = new_apc;
             _scale *= scale_step;
             _roi.width *= scale_step;
             _roi.height *= scale_step;
@@ -228,7 +299,7 @@ cv::Rect KCFTracker::update(cv::Mat image)
     return _roi;
 }
 // Update position based on the new frame
-cv::Rect KCFTracker::update(cv::Mat image, float &peakVal)
+cv::Rect KCFTracker::update(cv::Mat image, double &apcVal, double &peakVal)
 {
     if (_roi.x + _roi.width <= 0) _roi.x = -_roi.width + 1;
     if (_roi.y + _roi.height <= 0) _roi.y = -_roi.height + 1;
@@ -240,26 +311,30 @@ cv::Rect KCFTracker::update(cv::Mat image, float &peakVal)
 
 
     float peak_value;
-    cv::Point2f res = detect(_tmpl, getFeatures(image, 0, 1.0f), peak_value);
+    double apc;
+    cv::Point2f res = detect(_tmpl, getFeatures(image, 0, 1.0f), peak_value, apc);
 
     if (scale_step != 1) {
         // Test at a smaller _scale
         float new_peak_value;
-        cv::Point2f new_res = detect(_tmpl, getFeatures(image, 0, 1.0f / scale_step), new_peak_value);
+        double new_apc;
+        cv::Point2f new_res = detect(_tmpl, getFeatures(image, 0, 1.0f / scale_step), new_peak_value, new_apc);
 
         if (scale_weight * new_peak_value > peak_value) {
             res = new_res;
             peak_value = new_peak_value;
+            apc = new_apc;
             _scale /= scale_step;
             _roi.width /= scale_step;
             _roi.height /= scale_step;
         }
 
         // Test at a bigger _scale
-        new_res = detect(_tmpl, getFeatures(image, 0, scale_step), new_peak_value);
+        new_res = detect(_tmpl, getFeatures(image, 0, scale_step), new_peak_value, new_apc);
 
         if (scale_weight * new_peak_value > peak_value) {
             res = new_res;
+            apc = new_apc;
             peak_value = new_peak_value;
             _scale *= scale_step;
             _roi.width *= scale_step;
@@ -282,6 +357,7 @@ cv::Rect KCFTracker::update(cv::Mat image, float &peakVal)
 
     // printf("KCF:pv:%f\n", peak_value);
     peakVal = peak_value;
+    apcVal = apc;
 
     return _roi;
 }
@@ -292,7 +368,7 @@ void KCFTracker::updateRoi(cv::Mat image)
     train(x, interp_factor);
 }
 
-cv::Rect KCFTracker::seulDetect(cv::Mat image)
+cv::Rect KCFTracker::seulDetect(cv::Mat image, float &peak)
 {
     if (_roi.x + _roi.width <= 0) _roi.x = -_roi.width + 1;
     if (_roi.y + _roi.height <= 0) _roi.y = -_roi.height + 1;
@@ -304,29 +380,31 @@ cv::Rect KCFTracker::seulDetect(cv::Mat image)
 
 
     float peak_value;
-    cv::Point2f res = detect(_tmpl, getFeatures(image, 0, 1.0f), peak_value);
-
-    printf("seulDetect peak_value:%f\n", peak_value);
+    double apc;
+    cv::Point2f res = detect(_tmpl, getFeatures(image, 0, 1.0f), peak_value, apc);
 
     if (scale_step != 1) {
         // Test at a smaller _scale
         float new_peak_value;
-        cv::Point2f new_res = detect(_tmpl, getFeatures(image, 0, 1.0f / scale_step), new_peak_value);
+        double new_apc;
+        cv::Point2f new_res = detect(_tmpl, getFeatures(image, 0, 1.0f / scale_step), new_peak_value, new_apc);
 
         if (scale_weight * new_peak_value > peak_value) {
             res = new_res;
             peak_value = new_peak_value;
+            apc = new_apc;
             _scale /= scale_step;
             _roi.width /= scale_step;
             _roi.height /= scale_step;
         }
 
         // Test at a bigger _scale
-        new_res = detect(_tmpl, getFeatures(image, 0, scale_step), new_peak_value);
+        new_res = detect(_tmpl, getFeatures(image, 0, scale_step), new_peak_value, new_apc);
 
         if (scale_weight * new_peak_value > peak_value) {
             res = new_res;
             peak_value = new_peak_value;
+            apc = new_apc;
             _scale *= scale_step;
             _roi.width *= scale_step;
             _roi.height *= scale_step;
@@ -344,12 +422,18 @@ cv::Rect KCFTracker::seulDetect(cv::Mat image)
 
     assert(_roi.width >= 0 && _roi.height >= 0);
 
+    
+    // peak = peak_value;
+    peak = apc;
+
+    printf("seulDetect,peakval:%f\n", peak);
+
     return _roi;
 }
 
 
 // Detect object in the current frame.
-cv::Point2f KCFTracker::detect(cv::Mat z, cv::Mat x, float &peak_value)
+cv::Point2f KCFTracker::detect(cv::Mat z, cv::Mat x, float &peak_value, double &apc)
 {
     using namespace FFTTools;
 
@@ -358,9 +442,37 @@ cv::Point2f KCFTracker::detect(cv::Mat z, cv::Mat x, float &peak_value)
 
     //minMaxLoc only accepts doubles for the peak, and integer points for the coordinates
     cv::Point2i pi;
+    cv::Point2i minPoint;
     double pv;
-    cv::minMaxLoc(res, NULL, &pv, NULL, &pi);
+    double minValue;
+    // cv::minMaxLoc(res, minValue, &pv, NULL, &pi);
+    cv::minMaxLoc(res,&minValue,&pv,&minPoint,&pi);
     peak_value = (float) pv;
+
+    double ave_res = 0;
+    double value_diff = 0;
+    double sum_diff = 0;
+    for(int i=0; i<res.cols; i++){
+    	for(int j=0; j<res.rows; j++){
+				
+		value_diff = res.at<float>(i,j) - minValue;
+        if(abs(value_diff) > 100)
+            continue;
+		sum_diff += std::pow(value_diff,2); 
+        // printf("value_diff:%f, sum_diff:%f\n", value_diff, sum_diff);
+	}
+    }
+    ave_res = sum_diff/(res.cols*res.rows);
+    double mmdiff=0;
+    mmdiff = pv-minValue;
+    mmdiff = std::pow(mmdiff,2);
+    double apce=mmdiff/ave_res;
+    // printf("mmdiff:%f, sum_diff:%f, minValue:%f\n", mmdiff, sum_diff, minValue);
+    // apceValue = apce;
+    // peak_value = apce;
+    apc = apce;
+
+    // printf("tracker apce:%f\n", apce);
 
 
     //subpixel peak estimation, coordinates will be non-integer
@@ -512,6 +624,8 @@ cv::Mat KCFTracker::getFeatures(const cv::Mat & image, bool inithann, float scal
 
     extracted_roi.width = scale_adjust * _scale * _tmpl_sz.width;
     extracted_roi.height = scale_adjust * _scale * _tmpl_sz.height;
+
+    // printf("extracted_roi.width:%d,extracted_roi.height:%d, _scale:%f\n", extracted_roi.width, extracted_roi.height, _scale);  
 
     // center roi with new size
     extracted_roi.x = cx - extracted_roi.width / 2;

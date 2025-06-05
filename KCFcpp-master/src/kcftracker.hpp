@@ -88,18 +88,34 @@ the use of this software, even if advised of the possibility of such damage.
 #define _OPENCV_KCFTRACKER_HPP_
 #endif
 
+struct stTrackerParams
+{
+  bool hog;
+  bool fixedWin;
+  bool multiscale;
+  bool lab;
+  double lambda;
+  int padding;
+  double output_sigma_factor;
+  double sigma;
+  int cellSz;
+  double interp_factor;
+  int mode;
+};
+
 class KCFTracker : public Tracker
 {
 public:
     // Constructor
     KCFTracker(bool hog = true, bool fixed_window = true, bool multiscale = true, bool lab = true);
+    KCFTracker(stTrackerParams cfg);
 
     // Initialize tracker 
     virtual void init(const cv::Rect &roi, cv::Mat image);
     
     // Update position based on the new frame
     virtual cv::Rect update(cv::Mat image);
-    virtual cv::Rect update(cv::Mat image, float &peakVal);
+    virtual cv::Rect update(cv::Mat image, double &apcVal, double &peakVal);
 
     float interp_factor; // linear interpolation factor for adaptation
     float sigma; // gaussian kernel bandwidth
@@ -113,12 +129,12 @@ public:
     float scale_weight;  // to downweight detection scores of other scales for added stability
 
     void setRoi(cv::Rect roi);
-    cv::Rect seulDetect(cv::Mat image);
+    cv::Rect seulDetect(cv::Mat image, float &peak);
     void updateRoi(cv::Mat image);
 
 protected:
     // Detect object in the current frame.
-    cv::Point2f detect(cv::Mat z, cv::Mat x, float &peak_value);
+    cv::Point2f detect(cv::Mat z, cv::Mat x, float &peak_value, double &apc);
 
     // train tracker with a single image
     void train(cv::Mat x, float train_interp_factor);
@@ -153,4 +169,5 @@ private:
     int _gaussian_size;
     bool _hogfeatures;
     bool _labfeatures;
+    stTrackerParams m_cfg;
 };
